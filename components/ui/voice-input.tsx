@@ -24,82 +24,93 @@ export default function VoiceInput() {
     let localStream: MediaStream | null = null;
 
     if (listening) {
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then((stream) => {
-          localStream = stream;
-          // Volume visualization
-          audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-          analyser = audioCtx.createAnalyser();
-          source = audioCtx.createMediaStreamSource(stream);
-          source.connect(analyser);
-          analyser.fftSize = 64;
-          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      if (
+        typeof window !== "undefined" &&
+        navigator.mediaDevices &&
+        typeof navigator.mediaDevices.getUserMedia === "function"
+      ) {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then((stream) => {
+            localStream = stream;
+            // Volume visualization
+            audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            analyser = audioCtx.createAnalyser();
+            source = audioCtx.createMediaStreamSource(stream);
+            source.connect(analyser);
+            analyser.fftSize = 64;
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-          const update = () => {
-            analyser!.getByteFrequencyData(dataArray);
-            const max = Math.max(...dataArray);
-            setVolume(max);
-            rafId = requestAnimationFrame(update);
-          };
-          update();
+            const update = () => {
+              analyser!.getByteFrequencyData(dataArray);
+              const max = Math.max(...dataArray);
+              setVolume(max);
+              rafId = requestAnimationFrame(update);
+            };
+            update();
 
-          // Audio recording
-          const chunks: Blob[] = [];
-          const recorder = new MediaRecorder(stream);
-          setMediaRecorder(recorder);
-          setAudioChunks([]);
-          recorder.ondataavailable = (e) => {
-            if (e.data.size > 0) {
-              console.log('[VoiceInput] Audio chunk collected:', e.data.size, 'bytes');
-              chunks.push(e.data);
-            }
-          };
-          recorder.onstop = async () => {
-            console.log('[VoiceInput] MediaRecorder stopped, sending audio...');
-            if (chunks.length === 0) return;
-            dispatch(setLoading(true));
-            const audioBlob = new Blob(chunks, { type: 'audio/webm' });
-            let fileBlob = audioBlob;
-            let filename = 'recording.webm';
-            // Try to convert to wav
-            const wavBlob = await convertWebmToWav(audioBlob);
-            if (wavBlob.type === 'audio/wav') {
-              fileBlob = wavBlob;
-              filename = 'recording.wav';
-            }
-            const formData = new FormData();
-            formData.append('audio', fileBlob, filename);
-            console.log('[VoiceInput] Attempting to send audio:', { filename, size: fileBlob.size, type: fileBlob.type });
-            try {
-              const res = await fetch('http://34.224.38.76:8001/api/speech-to-text/', {
-                method: 'POST',
-                body: formData,
-              });
-              console.log('[VoiceInput] Response status:', res.status);
-              if (!res.ok) throw new Error('Failed to send audio');
-              const data = await res.json();
-              console.log('[VoiceInput] Response data:', data);
-              if (data && data.text) {
-                dispatch(setText(data.text));
-              } else {
-                dispatch(setError('No text recognized.'));
+            // Audio recording
+            const chunks: Blob[] = [];
+            const recorder = new MediaRecorder(stream);
+            setMediaRecorder(recorder);
+            setAudioChunks([]);
+            recorder.ondataavailable = (e) => {
+              if (e.data.size > 0) {
+                console.log('[VoiceInput] Audio chunk collected:', e.data.size, 'bytes');
+                chunks.push(e.data);
               }
-            } catch (err: any) {
-              console.error('[VoiceInput] Error sending audio:', err);
-              dispatch(setError('Error sending audio: ' + err.message));
-            } finally {
-              setMediaRecorder(null);
-              setAudioChunks([]);
-            }
-          };
-          recorder.start();
-          console.log('[VoiceInput] MediaRecorder started');
-        })
-        .catch((err) => {
-          setListening(false);
-          setVolume(0);
-          console.error("getUserMedia error:", err);
-        });
+            };
+            recorder.onstop = async () => {
+              console.log('[VoiceInput] MediaRecorder stopped, sending audio...');
+              if (chunks.length === 0) return;
+              dispatch(setLoading(true));
+              const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+              let fileBlob = audioBlob;
+              let filename = 'recording.webm';
+              // Try to convert to wav
+              const wavBlob = await convertWebmToWav(audioBlob);
+              if (wavBlob.type === 'audio/wav') {
+                fileBlob = wavBlob;
+                filename = 'recording.wav';
+              }
+              const formData = new FormData();
+              formData.append('audio', fileBlob, filename);
+              console.log('[VoiceInput] Attempting to send audio:', { filename, size: fileBlob.size, type: fileBlob.type });
+              try {
+                const res = await fetch('http://34.224.38.76:8001/api/speech-to-text/', {
+                  method: 'POST',
+                  body: formData,
+                });
+                console.log('[VoiceInput] Response status:', res.status);
+                if (!res.ok) throw new Error('Failed to send audio');
+                const data = await res.json();
+                console.log('[VoiceInput] Response data:', data);
+                if (data && data.text) {
+                  dispatch(setText(data.text));
+                } else {
+                  dispatch(setError('No text recognized.'));
+                }
+              } catch (err: any) {
+                console.error('[VoiceInput] Error sending audio:', err);
+                dispatch(setError('Error sending audio: ' + err.message));
+              } finally {
+                setMediaRecorder(null);
+                setAudioChunks([]);
+              }
+            };
+            recorder.start();
+            console.log('[VoiceInput] MediaRecorder started');
+          })
+          .catch((err) => {
+            setListening(false);
+            setVolume(0);
+            console.error("getUserMedia error:", err);
+          });
+      } else {
+        setListening(false);
+        setVolume(0);
+        dispatch(setError('Audio recording is not supported in this environment.'));
+        console.error('Audio recording is not supported in this environment.');
+      }
     }
     return () => {
       cancelAnimationFrame(rafId);
