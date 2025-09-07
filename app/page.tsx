@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Send } from "lucide-react"
 import VoiceInput from "@/components/ui/voice-input"
+import VoiceReadButton from "@/components/ui/voice-read-button"
 import { useAppSelector, useAppDispatch } from "@/store/hooks"
 import { clearText } from "@/store/features/speechToTextSlice"
 
@@ -111,7 +112,7 @@ export default function ChatPage() {
           // Full conversation view
           <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
             {messages.map((message: Message) => (
-              <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div key={message.id} className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}>
                 <div
                   className={`max-w-[80%] rounded-lg px-4 py-3 ${
                     message.role === "user"
@@ -121,6 +122,9 @@ export default function ChatPage() {
                 >
                   <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
                 </div>
+                {message.role === "assistant" && (
+                  <VoiceReadButton text={message.content} />
+                )}
               </div>
             ))}
 
@@ -178,4 +182,3 @@ export default function ChatPage() {
 
   )
 }
-
