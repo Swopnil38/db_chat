@@ -1,7 +1,8 @@
 import os
 from openai import OpenAI
+from django.conf import settings
 
-api_key = "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"
+api_key = settings.OPENAI_API_KEY
 
 client = OpenAI(api_key=api_key)
 
