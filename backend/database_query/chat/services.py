@@ -5,12 +5,12 @@ from django.conf import settings
 
 from langchain_openai import AzureChatOpenAI
 
-temperature = 0.7
+temperature = 0.3
 model = AzureChatOpenAI(
-    deployment_name=os.getenv("AZURE_OPENAI_FINETUNED_DEPLOYMENT_NAME"),
+    deployment_name=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
     api_key=os.getenv("AZURE_OPENAI_API_KEY"),
     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-    api_version=os.getenv("AZURE_OPENAI_FINETUNED_API_VERSION"),
+    api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
     temperature=temperature,
 )
 
