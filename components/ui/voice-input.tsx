@@ -76,7 +76,7 @@ export default function VoiceInput() {
               formData.append('audio', fileBlob, filename);
               console.log('[VoiceInput] Attempting to send audio:', { filename, size: fileBlob.size, type: fileBlob.type });
               try {
-                const res = await fetch('/api/speech-to-text/', {
+                const res = await fetch('/api/api/speech-to-text/', {
                   method: 'POST',
                   body: formData,
                 });

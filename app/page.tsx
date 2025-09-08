@@ -48,7 +48,7 @@ export default function ChatPage() {
     setIsLoading(true)
 
     try {
-      const res = await fetch(`/api/query/?query=${encodeURIComponent(input.trim())}`,
+      const res = await fetch(`/api/api/query/?query=${encodeURIComponent(input.trim())}`,
         {
           method: "GET",
           credentials: "include",
