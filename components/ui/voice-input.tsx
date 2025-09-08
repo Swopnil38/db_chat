@@ -69,7 +69,7 @@ export default function VoiceInput() {
               formData.append('audio', audioBlob, 'recording.webm');
               console.log('[VoiceInput] Attempting to send audio:', { filename: 'recording.webm', size: audioBlob.size, type: audioBlob.type });
               try {
-                const res = await fetch('http://localhost:8001/api/speech-to-text/', {
+                const res = await fetch('/api/api/speech-to-text/', {
                   method: 'POST',
                   body: formData,
                 });
