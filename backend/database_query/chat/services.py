@@ -2,29 +2,36 @@ import os
 from openai import OpenAI
 from django.conf import settings
 
-api_key = settings.OPENAI_API_KEY
 
-client = OpenAI(api_key=api_key)
+from langchain_openai import AzureChatOpenAI
+
+temperature = 0.7
+model = AzureChatOpenAI(
+    deployment_name=os.getenv("AZURE_OPENAI_FINETUNED_DEPLOYMENT_NAME"),
+    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    api_version=os.getenv("AZURE_OPENAI_FINETUNED_API_VERSION"),
+    temperature=temperature,
+)
+
 
 def pick_relevant_tables(user_query, schema):
     """Use LLM to pick only the relevant tables from the schema."""
     all_tables = sorted({t for t, c, d in schema})
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",  # fast + cheap for table selection
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are an assistant that selects only the database tables needed "
-                    "to answer a query.\n"
-                    f"Available tables: {', '.join(all_tables)}\n"
-                    "Return only table names separated by commas, no explanations."
-                )
-            },
-            {"role": "user", "content": user_query}
-        ]
+
+    system_prompt = (
+        "You are an assistant that selects only the database tables needed "
+        "to answer a query.\n"
+        f"Available tables: {', '.join(all_tables)}\n"
+        "Return only table names separated by commas, no explanations."
     )
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_query}
+    ]
+    response = model.invoke(messages)
+    picked = response.content if hasattr(response, 'content') else str(response)
 
     picked = response.choices[0].message.content
     selected = [t.strip() for t in picked.split(",") if t.strip() in all_tables]
