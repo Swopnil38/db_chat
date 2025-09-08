@@ -21,7 +21,7 @@ export default function VoiceReadButton({ text }: VoiceReadButtonProps) {
     try {
       const formData = new FormData();
       formData.append("text", text);
-      const res = await fetch("http://34.224.38.76:8001/api/text-to-speech/", {
+      const res = await fetch("/api/text-to-speech/", {
         method: "POST",
         body: formData,
       });
