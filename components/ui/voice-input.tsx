@@ -64,19 +64,12 @@ export default function VoiceInput() {
               if (chunks.length === 0) return;
               dispatch(setLoading(true));
               const audioBlob = new Blob(chunks, { type: 'audio/webm' });
-              let fileBlob = audioBlob;
-              let filename = 'recording.webm';
-              // Try to convert to wav
-              const wavBlob = await convertWebmToWav(audioBlob);
-              if (wavBlob.type === 'audio/wav') {
-                fileBlob = wavBlob;
-                filename = 'recording.wav';
-              }
+              // Always send webm, let backend handle conversion
               const formData = new FormData();
-              formData.append('audio', fileBlob, filename);
-              console.log('[VoiceInput] Attempting to send audio:', { filename, size: fileBlob.size, type: fileBlob.type });
+              formData.append('audio', audioBlob, 'recording.webm');
+              console.log('[VoiceInput] Attempting to send audio:', { filename: 'recording.webm', size: audioBlob.size, type: audioBlob.type });
               try {
-                const res = await fetch('/api/api/speech-to-text/', {
+                const res = await fetch('http://localhost:8001/api/speech-to-text/', {
                   method: 'POST',
                   body: formData,
                 });
@@ -125,64 +118,6 @@ export default function VoiceInput() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listening]);
 
-  // Helper: Convert webm Blob to wav using AudioContext (best effort)
-  async function convertWebmToWav(webmBlob: Blob): Promise<Blob> {
-    try {
-      const arrayBuffer = await webmBlob.arrayBuffer();
-  const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-      // PCM to WAV encoding
-      const wavBuffer = encodeWAV(audioBuffer);
-      return new Blob([wavBuffer], { type: 'audio/wav' });
-    } catch (e) {
-      // Fallback to webm if conversion fails
-      return webmBlob;
-    }
-  }
-
-  // Helper: Encode AudioBuffer to WAV (PCM 16-bit)
-  function encodeWAV(audioBuffer: AudioBuffer) {
-    const numChannels = audioBuffer.numberOfChannels;
-    const sampleRate = audioBuffer.sampleRate;
-    const format = 1; // PCM
-    const bitDepth = 16;
-    const samples = audioBuffer.length * numChannels;
-    const buffer = new ArrayBuffer(44 + samples * 2);
-    const view = new DataView(buffer);
-
-    function writeString(view: DataView, offset: number, str: string) {
-      for (let i = 0; i < str.length; i++) {
-        view.setUint8(offset + i, str.charCodeAt(i));
-      }
-    }
-
-    let offset = 0;
-    writeString(view, offset, 'RIFF'); offset += 4;
-    view.setUint32(offset, 36 + samples * 2, true); offset += 4;
-    writeString(view, offset, 'WAVE'); offset += 4;
-    writeString(view, offset, 'fmt '); offset += 4;
-    view.setUint32(offset, 16, true); offset += 4;
-    view.setUint16(offset, format, true); offset += 2;
-    view.setUint16(offset, numChannels, true); offset += 2;
-    view.setUint32(offset, sampleRate, true); offset += 4;
-    view.setUint32(offset, sampleRate * numChannels * bitDepth / 8, true); offset += 4;
-    view.setUint16(offset, numChannels * bitDepth / 8, true); offset += 2;
-    view.setUint16(offset, bitDepth, true); offset += 2;
-    writeString(view, offset, 'data'); offset += 4;
-    view.setUint32(offset, samples * 2, true); offset += 4;
-
-    // Interleave channels
-    let pos = offset;
-    for (let i = 0; i < audioBuffer.length; i++) {
-      for (let ch = 0; ch < numChannels; ch++) {
-        let sample = audioBuffer.getChannelData(ch)[i];
-        sample = Math.max(-1, Math.min(1, sample));
-        view.setInt16(pos, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
-        pos += 2;
-      }
-    }
-    return buffer;
-  }
 
 
 
