@@ -31,14 +31,11 @@ def pick_relevant_tables(user_query, schema):
         {"role": "user", "content": user_query}
     ]
     response = model.invoke(messages)
+    # LangChain's model.invoke returns an AIMessage with .content
     picked = response.content if hasattr(response, 'content') else str(response)
-
-    picked = response.choices[0].message.content
     selected = [t.strip() for t in picked.split(",") if t.strip() in all_tables]
-
     if not selected:
         selected = all_tables[:2]  # fallback, never empty
-
     return selected
 
 
@@ -55,28 +52,22 @@ def generate_sql(user_query, schema):
         f"{t}.{c} ({d})" for t, c, d in schema if t in relevant_tables
     ])
 
-    # Step 3: Generate SQL with strict rules
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a SQL generator for PostgreSQL.\n\n"
-                    f"Schema:\n{schema_str}\n\n"
-                    "Rules:\n"
-                    "- Use EXACTLY the table and column names as given in the schema.\n"
-                    "- Do not shorten, rename, or invent names.\n"
-                    "- Always fully qualify columns as table.column.\n"
-                    "- Only output SELECT queries.\n"
-                    "- Never guess column names. If unsure, pick only from schema."
-                )
-            },
-            {"role": "user", "content": user_query}
-        ]
-    )
-
-    sql_response = response.choices[0].message.content.strip()
+    # Step 3: Generate SQL with strict rules using LangChain AzureChatOpenAI
+    messages = [
+        {"role": "system", "content": (
+            "You are a SQL generator for PostgreSQL.\n\n"
+            f"Schema:\n{schema_str}\n\n"
+            "Rules:\n"
+            "- Use EXACTLY the table and column names as given in the schema.\n"
+            "- Do not shorten, rename, or invent names.\n"
+            "- Always fully qualify columns as table.column.\n"
+            "- Only output SELECT queries.\n"
+            "- Never guess column names. If unsure, pick only from schema."
+        )},
+        {"role": "user", "content": user_query}
+    ]
+    response = model.invoke(messages)
+    sql_response = response.content.strip() if hasattr(response, 'content') else str(response).strip()
 
     # Step 4: Clean SQL (remove ``` markers)
     if sql_response.startswith("```sql") and sql_response.endswith("```"):
